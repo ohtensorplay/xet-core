@@ -15,7 +15,8 @@ LFS_MACOS_AMD64="https://github.com/git-lfs/git-lfs/releases/download/v3.7.1/git
 LFS_MACOS_ARM64="https://github.com/git-lfs/git-lfs/releases/download/v3.7.1/git-lfs-darwin-arm64-v3.7.1.zip"
 
 BINARY_NAME="git-xet"
-INSTALL_DIR="/usr/local/bin"
+DEFAULT_INSTALL_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
+INSTALL_DIR="${GIT_XET_INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
 LFS_DIR="git-lfs-3.7.1"
 
@@ -105,15 +106,30 @@ fi
 echo "Setting executable permissions..."
 chmod +x "$BINARY_NAME"
 
+if [ -z "$INSTALL_DIR" ]; then
+    handle_error "Install directory must not be empty."
+fi
+
 echo "Installing to $INSTALL_DIR..."
+if [ ! -d "$INSTALL_DIR" ]; then
+    mkdir -p "$INSTALL_DIR" || handle_error "Failed to create install directory '$INSTALL_DIR'."
+fi
 if [ -w "$INSTALL_DIR" ]; then
     mv "$BINARY_NAME" "$INSTALL_DIR/" || handle_error "Failed to move binary."
 else
     echo "Need sudo permissions to install to $INSTALL_DIR."
+    if ! command -v sudo >/dev/null 2>&1; then
+        handle_error "Directory '$INSTALL_DIR' is not writable and sudo is unavailable. Set GIT_XET_INSTALL_DIR to a writable directory."
+    fi
     if ! sudo mv "$BINARY_NAME" "$INSTALL_DIR/"; then
         handle_error "Failed to move binary with sudo."
     fi
 fi
+
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *) echo "Note: add $INSTALL_DIR to PATH to run git-xet directly." ;;
+esac
 
 # Check git-lfs
 if ! command -v git-lfs >/dev/null 2>&1; then
@@ -148,6 +164,6 @@ if ! command -v git-lfs >/dev/null 2>&1; then
 fi
 
 # Post-install
-git-xet install --concurrency 3
+"$INSTALL_DIR/$BINARY_NAME" install --concurrency 3
 
 echo "Installation complete!"

@@ -22,6 +22,9 @@ curl --proto '=https' --tlsv1.2 -sSfL \
   https://mega.tensorplay.cn/git-xet/install.sh | sh
 ```
 
+The default destination is `${XDG_BIN_HOME:-$HOME/.local/bin}`. Override it
+with `GIT_XET_INSTALL_DIR` for a system-wide or custom installation.
+
 Windows packages and manual archives are published in
 [MEGA Git-Xet releases](https://github.com/ohtensorplay/xet-core/releases).
 

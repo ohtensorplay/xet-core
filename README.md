@@ -41,9 +41,10 @@ curl --proto '=https' --tlsv1.2 -sSfL \
   https://mega.tensorplay.cn/git-xet/install.sh | sh
 ```
 
-The installer selects the release for the current OS and architecture, places
-`git-xet` on `PATH`, and registers both MEGA transfer names in global Git
-configuration.
+The installer selects the release for the current OS and architecture, installs
+to `${XDG_BIN_HOME:-$HOME/.local/bin}` by default, and registers both MEGA
+transfer names in global Git configuration. Set `GIT_XET_INSTALL_DIR` when a
+different destination is required.
 
 Verify the installation:
 
