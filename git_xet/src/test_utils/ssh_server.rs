@@ -38,7 +38,7 @@ pub use crate::auth::{GitLFSAuthentationResponseHeader, GitLFSAuthenticateRespon
 ///
 /// Example (async context):
 /// ```ignore
-/// 
+///
 /// // Start server on any free port
 /// let (port, server_task) = start_local_ssh_server(None).await?;
 /// println!("Test SSH server listening on port {}", port);
@@ -175,7 +175,7 @@ impl ServerImpl {
             header: GitLFSAuthentationResponseHeader {
                 authorization: "Basic 38vcn391nv==".into(),
             },
-            href: format!("https://huggingface.co/{repo_id}.git/info/lfs"),
+            href: format!("https://git.tensorplay.cn/{repo_id}.git/info/lfs"),
             expires_in: 3600,
         };
 

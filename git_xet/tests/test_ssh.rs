@@ -107,7 +107,7 @@ async fn test_ssh_connect_through_ssh_cmd() -> Result<()> {
     let o = git_xet_run(ssh_cmd)?;
     let response: GitLFSAuthenticateResponse = serde_json::from_slice(&o.stdout)?;
     assert!(response.header.authorization.starts_with("Basic "));
-    assert_eq!(response.href, "https://huggingface.co/user/repo.git/info/lfs");
+    assert_eq!(response.href, "https://git.tensorplay.cn/user/repo.git/info/lfs");
     assert_eq!(response.expires_in, 3600);
 
     server_task.abort();
@@ -128,7 +128,7 @@ async fn test_ssh_connect_through_sh_cmd() -> Result<()> {
     let o = git_xet_run(sh_cmd)?;
     let response: GitLFSAuthenticateResponse = serde_json::from_slice(&o.stdout)?;
     assert!(response.header.authorization.starts_with("Basic "));
-    assert_eq!(response.href, "https://huggingface.co/user/repo.git/info/lfs");
+    assert_eq!(response.href, "https://git.tensorplay.cn/user/repo.git/info/lfs");
     assert_eq!(response.expires_in, 3600);
 
     server_task.abort();

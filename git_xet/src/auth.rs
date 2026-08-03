@@ -4,7 +4,7 @@ use std::sync::Arc;
 use netrc::Netrc;
 use xet_client::hub_client::{BearerCredentialHelper, CredentialHelper, NoopCredentialHelper, Operation};
 
-use crate::constants::HF_TOKEN_ENV;
+use crate::constants::MEGA_TOKEN_ENV;
 use crate::errors::{GitXetError, Result};
 use crate::git_repo::GitRepo;
 use crate::git_url::{GitUrl, Scheme};
@@ -17,10 +17,9 @@ use ssh::SSHCredentialHelper;
 #[cfg(any(test, feature = "git-xet-for-integration-test"))]
 pub use ssh::{GitLFSAuthentationResponseHeader, GitLFSAuthenticateResponse};
 
-// This mod derives credentials for the Xet CAS token API on HF Hub from the local repository's credentials.
-// Unlike the authorization model in huggingface_hub which adheres to using a HF token, Git and Git LFS have
-// a well established model that can be divided into two categories: HTTP(S) protocol based if the remote URL is an
-// HTTP URL and SSH based if the remote URL is an SSH URL.
+// This module derives credentials for the MEGA Xet CAS token API from the local repository's credentials.
+// Git and Git LFS have a well-established authorization model that can be divided into two categories:
+// HTTP(S)-based when the remote URL is HTTP(S), and SSH-based when the remote URL is SSH.
 // 1. If Git LFS determines that authorization is not needed to upload/download files, neither should Git-Xet require
 //  credentials to access the Xet CAS token API. Examples include downloading from a public repository. This information
 //  is reflected in the lfs.<url>.access Git config. See `AccessMode` below for details.
@@ -30,7 +29,7 @@ pub use ssh::{GitLFSAuthentationResponseHeader, GitLFSAuthenticateResponse};
 //  to authorize the batch API request. Git LFS does this by calling the `git-lfs-authenticate` command over an SSH
 //  channel to the endpoint as in the Git remote URL. See https://github.com/git-lfs/git-lfs/blob/main/docs/api/authentication.md
 //  and https://github.com/git-lfs/git-lfs/blob/463ed9727d21155585721489fdb8cc81030f979b/lfshttp/ssh.go#L76 for details of this
-//  command. The HF Xet CAS token API on HF Hub has been updated to accept this type of authorization.
+//  command. The MEGA Xet CAS token API accepts the same authorization.
 
 // The lfs.<url>.access configuration where <url> is the Git LFS server endpoint.
 // If set to "basic" then credentials will be requested before making batch requests to this url,
@@ -79,7 +78,7 @@ impl AccessMode {
 // 1. If access mode is "none", credential helper doesn't do anything and we don't prompt the user for
 //  any credentials.
 // 2. URL authentication on the Endpoint URL or the Git Remote URL.
-// 3. HF token set by environment variable "HF_TOKEN".
+// 3. MEGA token set by environment variable "MEGA_TOKEN".
 // 4. Netrc based on the hostname.
 // 5. If the Git remote URL has SSH scheme, use the SSHCredentialHelper.
 // 6. Git Credential Helper, potentially prompting the user.
@@ -109,7 +108,7 @@ pub fn get_credential(repo: &GitRepo, remote_url: &GitUrl, operation: Operation)
     }
 
     // 3. check credential from environment
-    if let Ok(token) = std::env::var(HF_TOKEN_ENV) {
+    if let Ok(token) = std::env::var(MEGA_TOKEN_ENV) {
         return Ok(BearerCredentialHelper::new(token, "env"));
     }
 
@@ -179,7 +178,7 @@ mod test_cred_helpers {
     use xet_runtime::utils::EnvVarGuard;
 
     use super::get_credential;
-    use crate::constants::HF_TOKEN_ENV;
+    use crate::constants::MEGA_TOKEN_ENV;
     use crate::git_repo::GitRepo;
     use crate::test_utils::TestRepo;
     use crate::utils::process_wrapping::run_git_captured_with_input_and_output;
@@ -214,7 +213,7 @@ mod test_cred_helpers {
         let test_repo = TestRepo::new("main")?;
 
         // 1. set http remote url
-        test_repo.set_remote("origin", "https://huggingface.co/datasets/user/repo")?;
+        test_repo.set_remote("origin", "https://git.tensorplay.cn/datasets/user/repo")?;
 
         // 2. set credential helper to store with a local file
         test_repo.set_config("credential.helper", "store")?;
@@ -223,7 +222,7 @@ mod test_cred_helpers {
         let mut cred_store = run_git_captured_with_input_and_output(test_repo.path(), "credential-store", &["store"])?;
         {
             let mut writer = cred_store.stdin()?;
-            write!(writer, "url=https://huggingface.co\nusername=user\npassword=secr3t\n\n")?;
+            write!(writer, "url=https://git.tensorplay.cn\nusername=user\npassword=secr3t\n\n")?;
         }
         cred_store.wait()?;
 
@@ -245,7 +244,7 @@ mod test_cred_helpers {
         let test_repo = TestRepo::new("main")?;
 
         // 1. set ssh remote url
-        test_repo.set_remote("origin", "git@hf.co:user/model-A")?;
+        test_repo.set_remote("origin", "git@ssh.tensorplay.cn:user/model-A")?;
 
         // 2. test
         let repo = GitRepo::open(test_repo.path())?;
@@ -267,11 +266,11 @@ mod test_cred_helpers {
         let netrc_file_path = netrc_file.path();
 
         // 1. set http remote url
-        test_repo.set_remote("origin", "https://huggingface.co/user/repo")?;
+        test_repo.set_remote("origin", "https://git.tensorplay.cn/user/repo")?;
 
         // 2. store a credential in a Netrc file.
         let _env_guard = EnvVarGuard::set("NETRC", netrc_file_path);
-        std::fs::write(netrc_file_path, "machine huggingface.co login user password secr3t")?;
+        std::fs::write(netrc_file_path, "machine git.tensorplay.cn login user password secr3t")?;
 
         // 3. test
         let repo = GitRepo::open(test_repo.path())?;
@@ -287,14 +286,14 @@ mod test_cred_helpers {
     #[test]
     #[serial(env_var_write_read)]
     fn test_cred_helper_selection_env() -> Result<()> {
-        // Test get credential from env var "HF_TOKEN".
+        // Test getting a credential from "MEGA_TOKEN".
         let test_repo = TestRepo::new("main")?;
 
         // 1. set http remote url
-        test_repo.set_remote("origin", "https://huggingface.co/user/repo")?;
+        test_repo.set_remote("origin", "https://git.tensorplay.cn/user/repo")?;
 
         // 2. set env var token
-        let _env_guard = EnvVarGuard::set(HF_TOKEN_ENV, "hf_abcde");
+        let _env_guard = EnvVarGuard::set(MEGA_TOKEN_ENV, "mega_test_token");
 
         // 3. test
         let repo = GitRepo::open(test_repo.path())?;
@@ -314,7 +313,7 @@ mod test_cred_helpers {
         let test_repo = TestRepo::new("main")?;
 
         // 1. set http remote url
-        test_repo.set_remote("origin", "https://user:hf_token@hf.co/user/repo")?;
+        test_repo.set_remote("origin", "https://user:mega_token@git.tensorplay.cn/user/repo")?;
 
         // 2. test
         let repo = GitRepo::open(test_repo.path())?;
@@ -334,10 +333,10 @@ mod test_cred_helpers {
         let test_repo = TestRepo::new("main")?;
 
         // 1. set http remote url
-        test_repo.set_remote("origin", "https://huggingface.co/user/repo")?;
+        test_repo.set_remote("origin", "https://git.tensorplay.cn/user/repo")?;
 
         // 2. set access mode to "none"
-        test_repo.set_config(&format!("lfs.{}.access", "https://huggingface.co/user/repo.git/info/lfs"), "none")?;
+        test_repo.set_config(&format!("lfs.{}.access", "https://git.tensorplay.cn/user/repo.git/info/lfs"), "none")?;
 
         // 3. test
         let repo = GitRepo::open(test_repo.path())?;

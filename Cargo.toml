@@ -23,8 +23,8 @@ exclude = [
 version = "1.5.4"
 edition = "2024"
 license = "Apache-2.0"
-homepage = "https://github.com/huggingface/xet-core"
-repository = "https://github.com/huggingface/xet-core"
+homepage = "https://mega.tensorplay.cn"
+repository = "https://github.com/ohtensorplay/xet-core"
 
 [profile.release]
 opt-level = 3

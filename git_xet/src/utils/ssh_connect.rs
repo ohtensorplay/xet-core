@@ -298,7 +298,7 @@ mod tests {
         let repo = GitRepo::open(test_repo.path())?;
 
         let meta = SSHMetadata {
-            user_and_host: "git@hf.co".into(),
+            user_and_host: "git@ssh.tensorplay.cn".into(),
             port: None,
             arg_list: vec!["auth".into(), "org/repo".into(), "upload".into()],
         };
@@ -306,7 +306,7 @@ mod tests {
         // Test with default SSH variant (OpenSSH)
         let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
         assert_eq!(cmd, DEFAULT_SSH_CMD);
-        assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+        assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
         assert!(!need_shell);
 
         // Test with GIT_SSH_COMMAND
@@ -314,7 +314,7 @@ mod tests {
             let _env = EnvVarGuard::set("GIT_SSH_COMMAND", "ssh -i ~/.ssh/id_rsa");
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, "ssh -i ~/.ssh/id_rsa");
-            assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
             assert!(need_shell);
         }
 
@@ -323,7 +323,7 @@ mod tests {
             let _env = EnvVarGuard::set("GIT_SSH", "/usr/bin/custom_ssh");
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, "/usr/bin/custom_ssh");
-            assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
             assert!(!need_shell);
         }
 
@@ -333,7 +333,7 @@ mod tests {
             let _env_variant = EnvVarGuard::set("GIT_SSH_VARIANT", "tortoiseplink");
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, r#"C:\Program Files\Tortoiseplink.exe"#);
-            assert_eq!(args, vec!["-batch", "git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["-batch", "git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
             assert!(!need_shell);
         }
 
@@ -343,7 +343,7 @@ mod tests {
             let repo = GitRepo::open(test_repo.path())?;
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, "ssh -v");
-            assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
             assert!(need_shell);
         }
 
@@ -353,7 +353,7 @@ mod tests {
             let repo = GitRepo::open(test_repo.path())?;
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, "ssh -o \"StrictHostKeyChecking no\"");
-            assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
             assert!(need_shell);
         }
 
@@ -367,7 +367,7 @@ mod tests {
         let repo = GitRepo::open(test_repo.path())?;
 
         let meta = SSHMetadata {
-            user_and_host: "git@hf.co".to_string(),
+            user_and_host: "git@ssh.tensorplay.cn".to_string(),
             port: Some(2222),
             arg_list: vec!["auth".into(), "org/repo".into(), "upload".into()],
         };
@@ -375,7 +375,7 @@ mod tests {
         // Test with default SSH variant (OpenSSH)
         let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
         assert_eq!(cmd, DEFAULT_SSH_CMD);
-        assert_eq!(args, vec!["-p", "2222", "git@hf.co", "auth", "org/repo", "upload"]);
+        assert_eq!(args, vec!["-p", "2222", "git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
         assert!(!need_shell);
 
         // Test with Putty variant
@@ -383,7 +383,7 @@ mod tests {
             let _env = EnvVarGuard::set("GIT_SSH_VARIANT", "putty");
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, DEFAULT_SSH_CMD);
-            assert_eq!(args, vec!["-P", "2222", "git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["-P", "2222", "git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
             assert!(!need_shell);
         }
 
@@ -392,7 +392,18 @@ mod tests {
             let _env = EnvVarGuard::set("GIT_SSH_VARIANT", "tortoiseplink");
             let (cmd, args, need_shell) = get_sshexe_and_args(&meta, &repo)?;
             assert_eq!(cmd, DEFAULT_SSH_CMD);
-            assert_eq!(args, vec!["-batch", "-P", "2222", "git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(
+                args,
+                vec![
+                    "-batch",
+                    "-P",
+                    "2222",
+                    "git@ssh.tensorplay.cn",
+                    "auth",
+                    "org/repo",
+                    "upload"
+                ]
+            );
             assert!(!need_shell);
         }
 
@@ -429,7 +440,7 @@ mod tests {
         let repo = GitRepo::open(test_repo.path())?;
 
         let meta = SSHMetadata {
-            user_and_host: "git@hf.co".into(),
+            user_and_host: "git@ssh.tensorplay.cn".into(),
             port: None,
             arg_list: vec!["auth".into(), "org/repo".into(), "upload".into()],
         };
@@ -437,14 +448,20 @@ mod tests {
         // Test with default SSH variant (OpenSSH)
         let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
         assert_eq!(cmd, DEFAULT_SSH_CMD);
-        assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+        assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
 
         // Test with GIT_SSH_COMMAND
         {
             let _env = EnvVarGuard::set("GIT_SSH_COMMAND", "ssh -i ~/.ssh/id_rsa");
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, "sh");
-            assert_eq!(args, vec!["-c", "ssh -i '~/.ssh/id_rsa' git@hf.co auth org/repo upload"]);
+            assert_eq!(
+                args,
+                vec![
+                    "-c",
+                    "ssh -i '~/.ssh/id_rsa' git@ssh.tensorplay.cn auth org/repo upload"
+                ]
+            );
         }
 
         // Test with GIT_SSH
@@ -452,7 +469,7 @@ mod tests {
             let _env = EnvVarGuard::set("GIT_SSH", "/usr/bin/custom_ssh");
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, "/usr/bin/custom_ssh");
-            assert_eq!(args, vec!["git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
         }
 
         // Test with ssh variant
@@ -461,7 +478,7 @@ mod tests {
             let _env_variant = EnvVarGuard::set("GIT_SSH_VARIANT", "tortoiseplink");
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, r#"C:\Program Files\Tortoiseplink.exe"#);
-            assert_eq!(args, vec!["-batch", "git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["-batch", "git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
         }
 
         // Test with core.sshCommand
@@ -470,7 +487,7 @@ mod tests {
             let repo = GitRepo::open(test_repo.path())?;
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, "sh");
-            assert_eq!(args, vec!["-c", "ssh -v git@hf.co auth org/repo upload"]);
+            assert_eq!(args, vec!["-c", "ssh -v git@ssh.tensorplay.cn auth org/repo upload"]);
         }
 
         // Test with core.sshCommand with quotes
@@ -479,7 +496,13 @@ mod tests {
             let repo = GitRepo::open(test_repo.path())?;
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, "sh");
-            assert_eq!(args, vec!["-c", "ssh -o 'StrictHostKeyChecking no' git@hf.co auth org/repo upload"]);
+            assert_eq!(
+                args,
+                vec![
+                    "-c",
+                    "ssh -o 'StrictHostKeyChecking no' git@ssh.tensorplay.cn auth org/repo upload"
+                ]
+            );
         }
 
         Ok(())
@@ -492,7 +515,7 @@ mod tests {
         let repo = GitRepo::open(test_repo.path())?;
 
         let meta = SSHMetadata {
-            user_and_host: "git@hf.co".to_string(),
+            user_and_host: "git@ssh.tensorplay.cn".to_string(),
             port: Some(2222),
             arg_list: vec!["auth".into(), "org/repo".into(), "upload".into()],
         };
@@ -500,14 +523,14 @@ mod tests {
         // Test with default SSH variant (OpenSSH)
         let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
         assert_eq!(cmd, DEFAULT_SSH_CMD);
-        assert_eq!(args, vec!["-p", "2222", "git@hf.co", "auth", "org/repo", "upload"]);
+        assert_eq!(args, vec!["-p", "2222", "git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
 
         // Test with Putty variant
         {
             let _env = EnvVarGuard::set("GIT_SSH_VARIANT", "putty");
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, DEFAULT_SSH_CMD);
-            assert_eq!(args, vec!["-P", "2222", "git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(args, vec!["-P", "2222", "git@ssh.tensorplay.cn", "auth", "org/repo", "upload"]);
         }
 
         // Test with Tortoise variant
@@ -515,7 +538,18 @@ mod tests {
             let _env = EnvVarGuard::set("GIT_SSH_VARIANT", "tortoiseplink");
             let (cmd, args) = get_sshcmd_and_args(&meta, &repo)?;
             assert_eq!(cmd, DEFAULT_SSH_CMD);
-            assert_eq!(args, vec!["-batch", "-P", "2222", "git@hf.co", "auth", "org/repo", "upload"]);
+            assert_eq!(
+                args,
+                vec![
+                    "-batch",
+                    "-P",
+                    "2222",
+                    "git@ssh.tensorplay.cn",
+                    "auth",
+                    "org/repo",
+                    "upload"
+                ]
+            );
         }
 
         Ok(())

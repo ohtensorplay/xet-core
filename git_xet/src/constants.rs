@@ -15,5 +15,4 @@ pub const XET_SESSION_ID: &str = "X-Xet-Session-Id";
 pub const XET_FILE_ID: &str = "X-Xet-File-Id";
 
 // Environment variable names
-pub const HF_TOKEN_ENV: &str = "HF_TOKEN";
-pub const HF_ENDPOINT_ENV: &str = "HF_ENDPOINT";
+pub const MEGA_TOKEN_ENV: &str = "MEGA_TOKEN";

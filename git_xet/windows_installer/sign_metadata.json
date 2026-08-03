@@ -1,6 +1,6 @@
 {
     "Endpoint": "https://eus.codesigning.azure.net/",
-    "CodeSigningAccountName": "tsa-huggingface-apps",
+    "CodeSigningAccountName": "tsa-tensorplay-apps",
     "CertificateProfileName": "git-xet-windows",
     "ExcludeCredentials": [
         "ManagedIdentityCredential",

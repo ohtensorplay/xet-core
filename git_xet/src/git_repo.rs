@@ -161,7 +161,7 @@ mod tests {
         assert_eq!(repo.remote_name()?, "origin".to_owned());
 
         // test SINGLE remote if exists
-        test_repo.set_remote("upstream", "http://hf.co/foo/bar")?;
+        test_repo.set_remote("upstream", "http://git.tensorplay.cn/foo/bar")?;
         assert_eq!(repo.remote_name()?, "upstream".to_owned());
 
         // test value of "remote.lfsdefault"
@@ -200,11 +200,11 @@ mod tests {
 
         let repo = GitRepo::open(test_repo.path())?;
 
-        test_repo.set_remote("upstream", "http://hf.co/foo/bar")?;
+        test_repo.set_remote("upstream", "http://git.tensorplay.cn/foo/bar")?;
 
         let remote_name = repo.remote_name()?;
         let remote_url = repo.remote_name_to_url(&remote_name)?;
-        assert_eq!(remote_url.as_str(), "http://hf.co/foo/bar".to_owned());
+        assert_eq!(remote_url.as_str(), "http://git.tensorplay.cn/foo/bar".to_owned());
 
         Ok(())
     }

@@ -32,7 +32,7 @@ impl TempHome {
 
     pub fn with_default_git_config(self) -> Result<Self> {
         run_git_captured(self.dir.path(), "config", &["--global", "user.name", "test"])?;
-        run_git_captured(self.dir.path(), "config", &["--global", "user.email", "test@hf.co"])?;
+        run_git_captured(self.dir.path(), "config", &["--global", "user.email", "test@tensorplay.cn"])?;
 
         #[cfg(target_os = "macos")]
         let _ = run_git_captured(self.dir.path(), "config", &["--global", "--unset", "credential.helper"]);

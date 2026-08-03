@@ -15,18 +15,18 @@ use crate::utils::process_wrapping::run_git_captured_with_input_and_output;
 // INPUT:
 //      ```
 //      protocol=https
-//      host=hf.co
+//      host=git.tensorplay.cn
 //      [blank line]
 //      ```
 // , which is equivalent to
 //      ```
-//      url=https://hf.co
+//      url=https://git.tensorplay.cn
 //      [blank line]
 //      ```
 // OUTPUT:
 //      ```
 //      protocol=https
-//      host=hf.co
+//      host=git.tensorplay.cn
 //      username=bob
 //      password=secr3t
 //      ```
@@ -47,9 +47,9 @@ pub struct GitCredentialHelper {}
 impl GitCredentialHelper {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(repo_path: impl AsRef<Path>, host_url: &str) -> Result<Arc<BearerCredentialHelper>> {
-        let hf_token = Self::authenticate(repo_path.as_ref(), host_url)?;
+        let token = Self::authenticate(repo_path.as_ref(), host_url)?;
 
-        Ok(BearerCredentialHelper::new(hf_token, "git"))
+        Ok(BearerCredentialHelper::new(token, "git"))
     }
 
     fn authenticate(repo_path: &Path, host_url: &str) -> Result<String> {
@@ -69,10 +69,10 @@ impl GitCredentialHelper {
             let mut line = line?;
             line.retain(|c| !c.is_whitespace());
 
-            if let Some(hf_token) = line.strip_prefix("password=")
-                && !hf_token.is_empty()
+            if let Some(token) = line.strip_prefix("password=")
+                && !token.is_empty()
             {
-                return Ok(hf_token.to_owned());
+                return Ok(token.to_owned());
             }
         }
 
@@ -117,7 +117,7 @@ mod test_cred_helpers {
         let host_url = parsed_url.host_url()?;
 
         let git_cred_helper = GitCredentialHelper::new(test_repo.path(), &host_url)?;
-        assert_eq!(git_cred_helper.hf_token, password);
+        assert_eq!(git_cred_helper.token, password);
 
         Ok(())
     }

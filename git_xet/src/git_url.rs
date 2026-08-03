@@ -7,11 +7,11 @@ use xet_client::hub_client::{HFRepoType, RepoInfo};
 use crate::errors::{GitXetError, Result};
 
 // This mod implements functionalities to handle Git remote URLs, especially tailored for
-// Git LFS and Hugging Face repo needs, including deriving Git LFS server endpoint from
-// Git remote URL and handling HF specific repo types.
+// Git LFS repository needs, including deriving the Git LFS server endpoint from
+// a Git remote URL and handling repository types.
 
 // `GitUrl` wraps inside a parsed Git remote URL and extends its capability for Git LFS
-// and HF repo specific needs.
+// and repository-specific needs.
 #[derive(Debug, Clone)]
 pub struct GitUrl {
     _raw: String,

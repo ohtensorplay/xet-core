@@ -17,8 +17,8 @@ enum Command {
     /// Install this program as a LFS custom transfer agent.
     #[clap(long_about = r#"Perform the following action to register Git-Xet:
 
-Set up the "xet" transfer agent under the name "lfs.customtransfer.xet" in
-global Git config with the below values
+Set up the "xet" upload agent and the "xet-download" download agent in global
+Git config with the values below
     path = git-xet
     args = transfer
     concurrent = <according to value from option "--concurrency" (default true)>
@@ -30,7 +30,8 @@ Git config to this number."#)]
     /// Remove the custom transfer agent configuration for this program.
     #[clap(long_about = r#"Perform the following action to unregister Git-Xet:
 
-Remove "lfs.customtransfer.xet" entirely from the global Git config.
+Remove "lfs.customtransfer.xet" and "lfs.customtransfer.xet-download" entirely
+from the global Git config.
 
 Remove "lfs.concurrenttransfers" from the global Git config."#)]
     Uninstall(UninstallArg),
@@ -118,14 +119,13 @@ struct CliOverrides {
     pub log: Option<PathBuf>,
 }
 
-/// Git-Xet is a Git LFS custom transfer agent that implements upload and download of files using the Xet protocol.
+/// MEGA Git-Xet is MEGA's Git LFS custom transfer agent for native Xet uploads and downloads.
 /// To start, run "git-xet install".
 ///
-/// Git-Xet works by registering itself as a custom transfer agent to Git LFS by name "xet". On "git push", "git fetch"
-/// or "git pull", git-lfs negotiates with the remote server to determine the transfer agent to use. During this
-/// process, git-lfs sends to the server all locally registered agent names in the Batch API request, and the server
-/// replies with exactly one agent name in the response. Should "xet" be picked, git-lfs delegates the uploading or
-/// downloading operation to Git-Xet through a sequential protocol.
+/// MEGA Git-Xet registers "xet" for uploads and "xet-download" for downloads. On "git push", "git fetch", or
+/// "git pull", Git LFS negotiates with the MEGA repository server to determine the transfer agent. Git LFS sends
+/// the locally registered agent names in the Batch API request, and the server selects one supported agent. Git LFS
+/// then delegates the upload or download operation to Git-Xet through its custom transfer protocol.
 ///
 /// For more details, see https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md and
 /// https://github.com/git-lfs/git-lfs/blob/main/docs/custom-transfers.md.

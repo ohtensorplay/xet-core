@@ -14,7 +14,7 @@ use xet_pkg::legacy::{FileUploadSession, Sha256Policy, XetFileInfo, clean_file, 
 use xet_runtime::core::XetContext;
 
 use crate::constants::{
-    HF_ENDPOINT_ENV, XET_ACCESS_TOKEN_HEADER, XET_CAS_URL, XET_FILE_ID, XET_SESSION_ID, XET_TOKEN_EXPIRATION_HEADER,
+    XET_ACCESS_TOKEN_HEADER, XET_CAS_URL, XET_FILE_ID, XET_SESSION_ID, XET_TOKEN_EXPIRATION_HEADER,
 };
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -26,7 +26,7 @@ fn xet_runtime() -> &'static XetContext {
 
 use crate::errors::{GitXetError, Result};
 use crate::git_repo::GitRepo;
-use crate::git_url::{GitUrl, Scheme};
+use crate::git_url::GitUrl;
 use crate::lfs_agent_protocol::{
     GitLFSProtocolError, InitRequestInner, ProgressUpdater, TransferAgent, TransferRequest,
 };
@@ -37,7 +37,6 @@ use crate::token_refresher::new_git_token_refresher;
 pub struct XetAgent {
     repo: OnceLock<GitRepo>,
     remote_url: Option<GitUrl>,
-    hf_endpoint: Option<String>,
 }
 
 impl TransferAgent for XetAgent {
@@ -95,19 +94,21 @@ impl TransferAgent for XetAgent {
             .action
             .header
             .get(XET_CAS_URL)
-            .ok_or_else(|| GitXetError::internal("Hugging Face Hub didn't provide a CAS URL"))?
+            .ok_or_else(|| GitXetError::internal("MEGA repository server didn't provide a CAS URL"))?
             .clone();
         let token = req
             .action
             .header
             .get(XET_ACCESS_TOKEN_HEADER)
-            .ok_or_else(|| GitXetError::internal("Hugging Face Hub didn't provide a CAS access token"))?
+            .ok_or_else(|| GitXetError::internal("MEGA repository server didn't provide a CAS access token"))?
             .clone();
         let token_expiry: u64 = req
             .action
             .header
             .get(XET_TOKEN_EXPIRATION_HEADER)
-            .ok_or_else(|| GitXetError::internal("Hugging Face Hub didn't provide a CAS access token expiration"))?
+            .ok_or_else(|| {
+                GitXetError::internal("MEGA repository server didn't provide a CAS access token expiration")
+            })?
             .parse()
             .map_err(GitXetError::internal)?;
 
@@ -218,20 +219,8 @@ impl XetAgent {
             Ok(url) => url,
             Err(_) => GitUrl::from_str(&req.remote)?,
         };
-        let hf_endpoint = if !matches!(remote_url.scheme(), Scheme::Http | Scheme::Https) && remote_url.port().is_some()
-        {
-            Some(std::env::var(HF_ENDPOINT_ENV).map_err(|_| {
-                GitXetError::config_error(
-                    r#"This repository has a non-standard Hugging Face remote URL,
-                please specify the Hugging Face server endpoint using environment variable "HF_ENDPOINT""#,
-                )
-            })?)
-        } else {
-            None
-        };
         self.repo.get_or_init(|| repo);
         self.remote_url = Some(remote_url);
-        self.hf_endpoint = hf_endpoint;
         Ok(())
     }
 }
@@ -250,7 +239,7 @@ fn required_action_header(req: &TransferRequest, name: &str, description: &str) 
     action_header(req, name)
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
-        .ok_or_else(|| GitXetError::internal(format!("Hugging Face Hub didn't provide a {description}")))
+        .ok_or_else(|| GitXetError::internal(format!("MEGA repository server didn't provide a {description}")))
 }
 
 fn parse_token_expiry(req: &TransferRequest) -> Result<u64> {

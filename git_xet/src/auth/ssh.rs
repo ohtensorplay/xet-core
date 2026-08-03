@@ -117,14 +117,14 @@ mod tests {
     async fn test_ssh_cred_helper_remote() -> Result<()> {
         let test_repo = TestRepo::new("main")?;
         let repo = GitRepo::open(test_repo.path())?;
-        let remote_url = "ssh://git@hf.co/seanses/tm"; // it seems that ssh port is not open on "huggingface.co"
+        let remote_url = "ssh://git@ssh.tensorplay.cn/mega/example";
         let parsed_url: GitUrl = remote_url.parse()?;
         let ssh_helper = SSHCredentialHelper::new(&parsed_url, &repo, Operation::Upload);
 
         let response = ssh_helper.authenticate().await?;
 
         assert!(response.header.authorization.starts_with("Basic"));
-        assert_eq!(response.href, "https://huggingface.co/seanses/tm.git/info/lfs");
+        assert_eq!(response.href, "https://ssh.tensorplay.cn/mega/example.git/info/lfs");
         assert!(response.expires_in > 0);
 
         Ok(())
