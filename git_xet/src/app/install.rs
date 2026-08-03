@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use crate::app::Command::Transfer;
-use crate::constants::{GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME, GIT_LFS_CUSTOM_TRANSFER_AGENT_PROGRAM};
+use crate::constants::{
+    GIT_LFS_CUSTOM_DOWNLOAD_AGENT_NAME, GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME, GIT_LFS_CUSTOM_TRANSFER_AGENT_PROGRAM,
+};
 use crate::errors::{GitXetError, Result};
 use crate::utils::process_wrapping::{run_git_captured, run_git_captured_with_input_and_output};
 
@@ -40,7 +42,8 @@ pub fn git_lfs_available() -> bool {
     run_git_captured(&cwd, "lfs", ["version"]).is_ok()
 }
 
-// Set up the "xet" transfer agent under the name "lfs.customtransfer.xet" in
+// Set up the upload-compatible "xet" transfer and the download-capable
+// "xet-download" transfer in
 // the Git config specified by `location` with the below values
 //     path = git-xet
 //     args = transfer
@@ -71,35 +74,35 @@ fn install_impl(location: ConfigLocation, concurrency: Option<u32>) -> Result<()
         "true"
     };
 
-    run_git_captured(
-        &wd,
-        "config",
-        [
-            loc_profile,
-            &format!("lfs.customtransfer.{}.path", GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME),
-            GIT_LFS_CUSTOM_TRANSFER_AGENT_PROGRAM,
-        ],
-    )?;
-
-    run_git_captured(
-        &wd,
-        "config",
-        [
-            loc_profile,
-            &format!("lfs.customtransfer.{}.args", GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME),
-            Transfer.name(),
-        ],
-    )?;
-
-    run_git_captured(
-        &wd,
-        "config",
-        [
-            loc_profile,
-            &format!("lfs.customtransfer.{}.concurrent", GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME),
-            concurrent,
-        ],
-    )?;
+    for agent_name in [GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME, GIT_LFS_CUSTOM_DOWNLOAD_AGENT_NAME] {
+        run_git_captured(
+            &wd,
+            "config",
+            [
+                loc_profile,
+                &format!("lfs.customtransfer.{agent_name}.path"),
+                GIT_LFS_CUSTOM_TRANSFER_AGENT_PROGRAM,
+            ],
+        )?;
+        run_git_captured(
+            &wd,
+            "config",
+            [
+                loc_profile,
+                &format!("lfs.customtransfer.{agent_name}.args"),
+                Transfer.name(),
+            ],
+        )?;
+        run_git_captured(
+            &wd,
+            "config",
+            [
+                loc_profile,
+                &format!("lfs.customtransfer.{agent_name}.concurrent"),
+                concurrent,
+            ],
+        )?;
+    }
 
     // If git-lfs is not configured ("git config --get" exits with error code 1), run "git lfs install",
     // but ignoring errors in case users intend to install and configure manually:
@@ -167,6 +170,7 @@ pub mod tests {
         // test the "xet" transfer agent is registered
         assert!(get_lfs_env(&env_list, "UploadTransfers")?.unwrap().contains("xet"));
         assert!(get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet"));
+        assert!(get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet-download"));
 
         // test the "xet" transfer agent has the desired concurrency
         let repo = GitRepo::open(test_repo.path())?;
@@ -195,6 +199,7 @@ pub mod tests {
         // test the "xet" transfer agent is registered
         assert!(get_lfs_env(&env_list, "UploadTransfers")?.unwrap().contains("xet"));
         assert!(get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet"));
+        assert!(get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet-download"));
 
         // test the "xet" transfer agent has the desired concurrency
         let repo = GitRepo::open(test_repo.path())?;
@@ -222,6 +227,7 @@ pub mod tests {
         // test the "xet" transfer agent is registered
         assert!(get_lfs_env(&env_list, "UploadTransfers")?.unwrap().contains("xet"));
         assert!(get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet"));
+        assert!(get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet-download"));
 
         // test the "xet" transfer agent has the desired concurrency
         let repo = GitRepo::open(test_repo.path())?;

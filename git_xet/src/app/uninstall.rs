@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::install::ConfigLocation;
-use crate::constants::GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME;
+use crate::constants::{GIT_LFS_CUSTOM_DOWNLOAD_AGENT_NAME, GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME};
 use crate::errors::Result;
 use crate::utils::process_wrapping::run_git_captured;
 
@@ -40,15 +40,17 @@ fn uninstall_impl(location: ConfigLocation) -> Result<()> {
         ConfigLocation::Local(maybe_loc) => (maybe_loc.unwrap_or(cwd), "--local"),
     };
 
-    let _ = run_git_captured(
-        &wd,
-        "config",
-        [
-            loc_profile,
-            "--remove-section",
-            &format!("lfs.customtransfer.{}", GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME),
-        ],
-    );
+    for agent_name in [GIT_LFS_CUSTOM_TRANSFER_AGENT_NAME, GIT_LFS_CUSTOM_DOWNLOAD_AGENT_NAME] {
+        let _ = run_git_captured(
+            &wd,
+            "config",
+            [
+                loc_profile,
+                "--remove-section",
+                &format!("lfs.customtransfer.{agent_name}"),
+            ],
+        );
+    }
 
     let _ = run_git_captured(&wd, "config", [loc_profile, "--unset", "lfs.concurrenttransfers"]);
 
@@ -91,6 +93,7 @@ mod tests {
         // test the "xet" transfer agent is unregistered
         assert!(!get_lfs_env(&env_list, "UploadTransfers")?.unwrap().contains("xet"));
         assert!(!get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet"));
+        assert!(!get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet-download"));
 
         // test the "lfs.concurrenttransfers" is reset to default
         assert_eq!(get_lfs_env(&env_list, "ConcurrentTransfers")?.unwrap(), "8");
@@ -134,6 +137,7 @@ mod tests {
         // test the "xet" transfer agent is unregistered
         assert!(!get_lfs_env(&env_list, "UploadTransfers")?.unwrap().contains("xet"));
         assert!(!get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet"));
+        assert!(!get_lfs_env(&env_list, "DownloadTransfers")?.unwrap().contains("xet-download"));
 
         // test the "lfs.concurrenttransfers" is reset to default
         assert_eq!(get_lfs_env(&env_list, "ConcurrentTransfers")?.unwrap(), "8");

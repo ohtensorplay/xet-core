@@ -1,4 +1,4 @@
-Git-Xet is a Git LFS custom transfer agent that implements upload and download of files using the Xet protocol. Install `git-xet`, follow your regular workflow to `git lfs track ...` & `git add ...` & `git commit ...` & `git push`, and your files are uploaded to Hugging Face repos using the Xet protocol. Enjoy the dedupe!
+Git-Xet is a Git LFS custom transfer agent that implements upload and download of files using the Xet protocol. Install `git-xet`, follow your regular workflow to `git lfs track ...` & `git add ...` & `git commit ...` & `git push`, and your files are transferred directly between the client and the Xet CAS negotiated by the repository server. Enjoy the dedupe!
 
 ## Installation
 ### Prerequisite
@@ -11,7 +11,7 @@ Make sure you have [git](https://git-scm.com/downloads) and [git-lfs](https://gi
    ```
  Or, using an installation script, run the following in your terminal (requires `curl` and `unzip`):
    ```
-   curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/huggingface/xet-core/refs/heads/main/git_xet/install.sh | sh
+   curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ohtensorplay/xet-core/refs/heads/main/git_xet/install.sh | sh
    ```
   To verify the installation, run:
    ```
@@ -25,11 +25,11 @@ Make sure you have [git](https://git-scm.com/downloads) and [git-lfs](https://gi
  ```
 
  Using an installer: 
- - Download `git-xet-windows-installer-x86_64.zip` ([available here](https://github.com/huggingface/xet-core/releases/download/git-xet-v0.2.0/git-xet-windows-installer-x86_64.zip)) and unzip. 
+ - Download `git-xet-windows-installer-x86_64.zip` from the [MEGA Git-Xet releases](https://github.com/ohtensorplay/xet-core/releases) and unzip.
  - Run the `msi` installer file and follow the prompts.
    
  Manual installation:
- - Download `git-xet-windows-x86_64.zip` ([available here](https://github.com/huggingface/xet-core/releases/download/git-xet-v0.2.0/git-xet-windows-x86_64.zip)) and unzip. 
+ - Download `git-xet-windows-x86_64.zip` from the [MEGA Git-Xet releases](https://github.com/ohtensorplay/xet-core/releases) and unzip.
  - Place the extracted `git-xet.exe` under a `PATH` directory.
  - Run `git-xet install` in a terminal.
 
@@ -66,6 +66,6 @@ If you manually installed:
 - Delete the `git-xet.exe` file from the location where it was originally placed.
 
 ## How It Works
-Git-Xet works by registering itself as a custom transfer agent to Git LFS by name "xet". On `git push`, `git fetch` or `git pull`, `git-lfs` negotiates with the remote server to determine the transfer agent to use. During this process, `git-lfs` sends to the server all locally registered agent names in the Batch API request, and the server replies with exactly one agent name in the response. Should "xet" be picked, `git-lfs` delegates the uploading or downloading operation to `git-xet` through a sequential protocol.
+Git-Xet registers `xet` for uploads and `xet-download` for downloads. The separate download name preserves compatibility with older Git-Xet clients, which advertised `xet` but only implemented uploads. On `git push`, `git fetch`, or `git pull`, Git LFS sends all locally registered agent names in the Batch API request and the server selects one. When the matching Xet agent is selected, Git LFS delegates the operation to `git-xet`, while the repository server remains the token and metadata control plane rather than proxying file bytes.
 
 For more details, see the Git LFS [Batch API](https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md) and [Custom Transfer Agent](https://github.com/git-lfs/git-lfs/blob/main/docs/custom-transfers.md) documentation.

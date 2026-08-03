@@ -43,6 +43,8 @@ jobs:
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
+    env:
+      MACOS_SIGNING_CONFIGURED: ${{ secrets.CLI_MACOS_CERTIFICATE != '' && secrets.CLI_MACOS_TEAM_ID != '' && secrets.CLI_MACOS_CERTIFICATE_PWD != '' && secrets.CLI_MACOS_NOTARY_USER != '' && secrets.CLI_MACOS_NOTARY_PWD != '' }}
     strategy:
       matrix:
         platform:
@@ -64,6 +66,7 @@ jobs:
           cp target/release/git-xet dist/
           cp git_xet/entitlements.xml dist/
       - name: Codesign and Notarization
+        if: ${{ env.MACOS_SIGNING_CONFIGURED == 'true' }}
         uses: ./.github/actions/macos-codesign-notarize
         with:
           file: dist/git-xet
@@ -81,6 +84,8 @@ jobs:
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
+    env:
+      WINDOWS_SIGNING_CONFIGURED: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' }}
     strategy:
       matrix:
         platform:
@@ -106,6 +111,7 @@ jobs:
           mkdir dist
           cp target/release/git-xet.exe dist/
       - name: Codesign the executable file
+        if: ${{ env.WINDOWS_SIGNING_CONFIGURED == 'true' }}
         uses: ./.github/actions/windows-codesign
         with:
           file: ${{ github.workspace }}\dist\git-xet.exe
@@ -118,6 +124,7 @@ jobs:
           cd dist
           wix build -acceptEula wix7 Package.wxs -o bin\git-xet-windows-installer -arch ${{ matrix.platform.wix_arch }}
       - name: Codesign the installer
+        if: ${{ env.WINDOWS_SIGNING_CONFIGURED == 'true' }}
         uses: ./.github/actions/windows-codesign
         with:
           file: ${{ github.workspace }}\dist\bin\git-xet-windows-installer.msi

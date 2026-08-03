@@ -1,17 +1,20 @@
-use std::io::Write;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::str::FromStr;
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use http::header;
+use sha2::{Digest, Sha256};
 use xet_client::cas_client::auth::TokenRefresher;
 use xet_client::hub_client::Operation;
+use xet_pkg::legacy::data_client::download_async;
 use xet_pkg::legacy::progress_tracking::{GroupProgressCallbackUpdater, ProgressUpdate, TrackingProgressUpdater};
-use xet_pkg::legacy::{FileUploadSession, Sha256Policy, clean_file, default_config};
+use xet_pkg::legacy::{FileUploadSession, Sha256Policy, XetFileInfo, clean_file, default_config};
 use xet_runtime::core::XetContext;
 
 use crate::constants::{
-    HF_ENDPOINT_ENV, XET_ACCESS_TOKEN_HEADER, XET_CAS_URL, XET_SESSION_ID, XET_TOKEN_EXPIRATION_HEADER,
+    HF_ENDPOINT_ENV, XET_ACCESS_TOKEN_HEADER, XET_CAS_URL, XET_FILE_ID, XET_SESSION_ID, XET_TOKEN_EXPIRATION_HEADER,
 };
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -39,39 +42,11 @@ pub struct XetAgent {
 
 impl TransferAgent for XetAgent {
     async fn init_upload(&mut self, req: &InitRequestInner) -> Result<()> {
-        let repo = GitRepo::open_from_cur_dir()?;
-        let remote_url = match repo.remote_name_to_url(&req.remote) {
-            Ok(url) => url, // the provided `remote` is a remote name
-            Err(_) => {
-                // the provided `remote` is likely a remote URL, try parse it
-                GitUrl::from_str(&req.remote)?
-            },
-        };
-
-        let hf_endpoint = if !matches!(remote_url.scheme(), Scheme::Http | Scheme::Https) && remote_url.port().is_some()
-        {
-            Some(std::env::var(HF_ENDPOINT_ENV).map_err(|_| {
-                GitXetError::config_error(
-                    r#"This repository has a non-standard Hugging Face remote URL, 
-                please specify the Hugging Face server endpoint using environment variable "HF_ENDPOINT""#,
-                )
-            })?)
-        } else {
-            None
-        };
-
-        self.repo.get_or_init(|| repo);
-        self.remote_url = Some(remote_url);
-        self.hf_endpoint = hf_endpoint;
-
-        Ok(())
+        self.init_remote(req)
     }
 
-    async fn init_download(&mut self, _: &InitRequestInner) -> Result<()> {
-        Err(GitXetError::not_supported(
-            "custom transfer for download is not implemented yet. Downloads should operate through standard git-lfs download protocol.
-            If you encounter errors downloading, contact Xet Team at Hugging Face.",
-        ))
+    async fn init_download(&mut self, req: &InitRequestInner) -> Result<()> {
+        self.init_remote(req)
     }
 
     async fn upload_one<W: Write + Send + Sync + 'static>(
@@ -183,15 +158,131 @@ impl TransferAgent for XetAgent {
 
     async fn download_one<W: Write + Send + Sync + 'static>(
         &mut self,
-        _req: &TransferRequest,
-        _progress_updater: ProgressUpdater<W>,
+        req: &TransferRequest,
+        progress_updater: ProgressUpdater<W>,
     ) -> Result<std::path::PathBuf> {
-        unimplemented!()
+        let repo = self.repo.get().unwrap(); // protocol state guarantees self.repo is set.
+        let user_agent_headers = user_agent_headers();
+        let session_id = action_header(req, XET_SESSION_ID).unwrap_or_default();
+        let token_refresher: Arc<dyn TokenRefresher> = Arc::new(new_git_token_refresher(
+            xet_runtime(),
+            repo,
+            self.remote_url.clone(),
+            &req.action.href,
+            Operation::Download,
+            session_id,
+            Some(Arc::new(user_agent_headers.clone())),
+        )?);
+        let cas_url = required_action_header(req, XET_CAS_URL, "CAS URL")?;
+        let token = required_action_header(req, XET_ACCESS_TOKEN_HEADER, "CAS access token")?;
+        let token_expiry = parse_token_expiry(req)?;
+        let file_id = required_action_header(req, XET_FILE_ID, "Xet file ID")?;
+
+        let temp_dir = repo.git_path()?.join("lfs").join("tmp");
+        std::fs::create_dir_all(&temp_dir)?;
+        let temp_path = tempfile::Builder::new()
+            .prefix("git-xet-download-")
+            .tempfile_in(temp_dir)?
+            .into_temp_path();
+        let destination = temp_path.to_path_buf();
+        let xet_updater: Arc<dyn TrackingProgressUpdater> = Arc::new(XetProgressUpdaterWrapper {
+            updater: progress_updater,
+        });
+        download_async(
+            xet_runtime(),
+            vec![(
+                XetFileInfo::new_with_sha256(file_id, req.size, req.oid.clone()),
+                destination.to_string_lossy().into_owned(),
+            )],
+            Some(cas_url),
+            Some((token, token_expiry)),
+            Some(token_refresher),
+            Some(vec![xet_updater]),
+            Some(Arc::new(user_agent_headers)),
+        )
+        .await?;
+
+        verify_lfs_download(destination, req.size, req.oid.clone()).await?;
+        temp_path.keep().map_err(GitXetError::internal)
     }
 
     async fn terminate(&mut self) -> Result<()> {
         Ok(())
     }
+}
+
+impl XetAgent {
+    fn init_remote(&mut self, req: &InitRequestInner) -> Result<()> {
+        let repo = GitRepo::open_from_cur_dir()?;
+        let remote_url = match repo.remote_name_to_url(&req.remote) {
+            Ok(url) => url,
+            Err(_) => GitUrl::from_str(&req.remote)?,
+        };
+        let hf_endpoint = if !matches!(remote_url.scheme(), Scheme::Http | Scheme::Https) && remote_url.port().is_some()
+        {
+            Some(std::env::var(HF_ENDPOINT_ENV).map_err(|_| {
+                GitXetError::config_error(
+                    r#"This repository has a non-standard Hugging Face remote URL,
+                please specify the Hugging Face server endpoint using environment variable "HF_ENDPOINT""#,
+                )
+            })?)
+        } else {
+            None
+        };
+        self.repo.get_or_init(|| repo);
+        self.remote_url = Some(remote_url);
+        self.hf_endpoint = hf_endpoint;
+        Ok(())
+    }
+}
+
+fn user_agent_headers() -> header::HeaderMap {
+    let mut headers = header::HeaderMap::new();
+    headers.insert(header::USER_AGENT, header::HeaderValue::from_static(USER_AGENT));
+    headers
+}
+
+fn action_header<'a>(req: &'a TransferRequest, name: &str) -> Option<&'a str> {
+    req.action.header.get(name).map(String::as_str)
+}
+
+fn required_action_header(req: &TransferRequest, name: &str, description: &str) -> Result<String> {
+    action_header(req, name)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| GitXetError::internal(format!("Hugging Face Hub didn't provide a {description}")))
+}
+
+fn parse_token_expiry(req: &TransferRequest) -> Result<u64> {
+    required_action_header(req, XET_TOKEN_EXPIRATION_HEADER, "CAS access token expiration")?
+        .parse()
+        .map_err(GitXetError::internal)
+}
+
+async fn verify_lfs_download(path: std::path::PathBuf, expected_size: u64, expected_oid: String) -> Result<()> {
+    tokio::task::spawn_blocking(move || {
+        let mut file = File::open(path)?;
+        let mut hasher = Sha256::new();
+        let mut size = 0u64;
+        let mut buffer = vec![0u8; 1024 * 1024];
+        loop {
+            let read = file.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            size = size
+                .checked_add(read as u64)
+                .ok_or_else(|| GitXetError::internal("downloaded file size overflow"))?;
+            hasher.update(&buffer[..read]);
+        }
+        let actual_oid: String = hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
+        if size != expected_size || actual_oid != expected_oid {
+            return Err(GitXetError::internal("downloaded Xet object failed Git LFS integrity verification"));
+        }
+        Ok(())
+    })
+    .await
+    .map_err(GitXetError::internal)?
 }
 
 struct XetProgressUpdaterWrapper<W: Write + Send + Sync + 'static> {
@@ -202,5 +293,31 @@ struct XetProgressUpdaterWrapper<W: Write + Send + Sync + 'static> {
 impl<W: Write + Send + Sync + 'static> TrackingProgressUpdater for XetProgressUpdaterWrapper<W> {
     async fn register_updates(&self, updates: ProgressUpdate) {
         let _ = self.updater.update_bytes_so_far(updates.total_bytes_completed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use sha2::{Digest, Sha256};
+
+    use super::verify_lfs_download;
+
+    #[tokio::test]
+    async fn verifies_downloaded_lfs_content_before_handoff() {
+        let content = b"git-xet-direct-download";
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write_all(content).unwrap();
+        let oid: String = Sha256::digest(content).iter().map(|byte| format!("{byte:02x}")).collect();
+
+        verify_lfs_download(file.path().to_path_buf(), content.len() as u64, oid.clone())
+            .await
+            .unwrap();
+        assert!(
+            verify_lfs_download(file.path().to_path_buf(), content.len() as u64 + 1, oid)
+                .await
+                .is_err()
+        );
     }
 }
